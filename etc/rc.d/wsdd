@@ -5,11 +5,20 @@
 # BEFORE: login
 # KEYWORD: shutdown
 
+#
+# Add the following lines to /etc/rc.conf to enable wsdd
+# wsdd_enable (bool):   Run wsdd (or NO).
+# wsdd_on_ad (bool):    Set to "YES" if the host running wsdd joined an ADS domain
+# wsdd_hostname (str):  Override the hostname, in case like changing netbios name
+
 . /etc/rc.subr
 
 name=wsdd
 rcvar=wsdd_enable
 wsdd_group=$(/usr/local/bin/testparm -s --parameter-name workgroup 2>/dev/null)
+load_rc_config wsdd
+wsdd_on_ad=${wsdd_on_ad:-"NO"}
+wsdd_hostname=${wsdd_hostname:-""}
 
 : ${wsdd_smb_config_file="/usr/local/etc/smb4.conf"}
 
@@ -19,7 +28,15 @@ if [ -z "$wsdd_group" ] && [ -r $wsdd_smb_config_file ]; then
 fi
 
 if [ -n "$wsdd_group" ]; then
-	wsdd_opts="-w ${wsdd_group}"
+	if checkyesno wsdd_on_ad ; then
+		wsdd_opts="-d ${wsdd_group}"
+	else
+		wsdd_opts="-w ${wsdd_group}"
+	fi
+fi
+
+if [ -n "$wsdd_hostname" ]; then
+	wsdd_opts="${wsdd_opts} -n ${wsdd_hostname}"
 fi
 
 command="/usr/sbin/daemon"
